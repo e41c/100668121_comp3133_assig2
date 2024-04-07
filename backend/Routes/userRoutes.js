@@ -1,3 +1,5 @@
+// backend/Routes/userRoutes.js
+
 const { Router } = require('express');
 const { MongoClient } = require('mongodb');
 const { generateToken, hashPassword, comparePassword } = require('../authMiddleware');

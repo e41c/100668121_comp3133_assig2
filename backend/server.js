@@ -6,16 +6,19 @@ const { graphqlHTTP } = require('express-graphql');
 const { buildSchema } = require('graphql');
 const userRoutes = require('./Routes/userRoutes');
 const { ObjectId } = require('mongodb');
+require('dotenv').config();
 
+const uri = process.env.DB_URI; // Using environment variable for MongoDB URI
+const dbName = process.env.DB_NAME; // Using environment variable for database name
+const port = process.env.PORT || 4000; // Using environment variable for port
 
-const uri = 'mongodb+srv://admin:Reitzel@e41c.tm3gpox.mongodb.net/?retryWrites=true&w=majority&appName=e41c';
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
 let db;
 
 async function connectToMongoDB() {
   try {
     await client.connect();
-    db = client.db('e41c'); 
+    db = client.db(dbName); // Using environment variable for database name
     console.log('Connected to MongoDB');
   } catch (error) {
     console.error('Error connecting to MongoDB:', error);
@@ -43,6 +46,7 @@ const schema = buildSchema(`
     deleteEmployee(id: ID!): String
   }
 `);
+
 const root = {
   employees: async () => {
     try {
@@ -110,19 +114,16 @@ const root = {
   }
 };
 
-
 const app = express();
 
 app.use(express.json());
 app.use('/api/user', userRoutes);
-
 app.use('/graphql', graphqlHTTP({
   schema: schema,
   rootValue: root,
   graphiql: true
 }));
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
 });

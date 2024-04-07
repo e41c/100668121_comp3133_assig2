@@ -1,7 +1,10 @@
+// backend/authMiddleware.js
+
+require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
-const secretKey = '123456'; 
+const secretKey = process.env.SECRET_KEY;
 
 function generateToken(userId) {
   return jwt.sign({ userId }, secretKey, { expiresIn: '1h' });
