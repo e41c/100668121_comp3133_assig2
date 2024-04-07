@@ -1,8 +1,29 @@
+// backend/server.js
+
 const express = require('express');
+const { MongoClient } = require('mongodb');
 const { graphqlHTTP } = require('express-graphql');
 const { buildSchema } = require('graphql');
+const userRoutes = require('./Routes/userRoutes');
+const { ObjectId } = require('mongodb');
 
-// Define GraphQL schema
+
+const uri = 'mongodb+srv://admin:Reitzel@e41c.tm3gpox.mongodb.net/?retryWrites=true&w=majority&appName=e41c';
+const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+let db;
+
+async function connectToMongoDB() {
+  try {
+    await client.connect();
+    db = client.db('e41c'); 
+    console.log('Connected to MongoDB');
+  } catch (error) {
+    console.error('Error connecting to MongoDB:', error);
+  }
+}
+
+connectToMongoDB();
+
 const schema = buildSchema(`
   type Employee {
     id: ID!
@@ -22,68 +43,85 @@ const schema = buildSchema(`
     deleteEmployee(id: ID!): String
   }
 `);
-
-// Dummy data for demonstration
-let employees = [
-  { id: '1', name: 'John Doe', email: 'john@example.com', department: 'IT' },
-  { id: '2', name: 'Jane Smith', email: 'jane@example.com', department: 'HR' }
-];
-
-// Define resolver functions
 const root = {
-  employees: () => employees,
-  employee: ({ id }) => employees.find(emp => emp.id === id),
-  addEmployee: ({ name, email, department }) => {
-    const id = String(employees.length + 1);
-    const newEmployee = { id, name, email, department };
-    employees.push(newEmployee);
-    return newEmployee;
+  employees: async () => {
+    try {
+      const employees = await db.collection('employees').find().toArray();
+      return employees;
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      throw new Error('Failed to fetch employees');
+    }
   },
-  updateEmployee: ({ id, name, email, department }) => {
-    const index = employees.findIndex(emp => emp.id === id);
-    if (index === -1) return null;
-    if (name) employees[index].name = name;
-    if (email) employees[index].email = email;
-    if (department) employees[index].department = department;
-    return employees[index];
+  employee: async ({ id }) => {
+    try {
+      const employee = await db.collection('employees').findOne({ _id: ObjectId(id) });
+      return employee;
+    } catch (error) {
+      console.error('Error fetching employee:', error);
+      throw new Error('Failed to fetch employee');
+    }
   },
-  deleteEmployee: ({ id }) => {
-    const index = employees.findIndex(emp => emp.id === id);
-    if (index === -1) return 'Employee not found';
-    employees.splice(index, 1);
-    return 'Employee deleted successfully';
+  addEmployee: async ({ name, email, department }) => {
+    try {
+      const result = await db.collection('employees').insertOne({ name, email, department });
+      return {
+        id: result.insertedId,
+        name,
+        email,
+        department
+      };
+    } catch (error) {
+      console.error('Error adding employee:', error);
+      throw new Error('Failed to add employee');
+    }
+  },
+  updateEmployee: async ({ id, name, email, department }) => {
+    try {
+      const result = await db.collection('employees').updateOne(
+        { _id: ObjectId(id) },
+        { $set: { name, email, department } }
+      );
+      if (result.modifiedCount === 0) {
+        throw new Error('Employee not found');
+      }
+      return {
+        id,
+        name,
+        email,
+        department
+      };
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      throw new Error('Failed to update employee');
+    }
+  },
+  deleteEmployee: async ({ id }) => {
+    try {
+      const result = await db.collection('employees').deleteOne({ _id: ObjectId(id) });
+      if (result.deletedCount === 0) {
+        throw new Error('Employee not found');
+      }
+      return 'Employee deleted successfully';
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      throw new Error('Failed to delete employee');
+    }
   }
 };
 
-// Create Express app
+
 const app = express();
 
-// Define GraphQL endpoint
+app.use(express.json());
+app.use('/api/user', userRoutes);
+
 app.use('/graphql', graphqlHTTP({
   schema: schema,
   rootValue: root,
-  graphiql: true // Enable GraphiQL for testing
+  graphiql: true
 }));
 
-const { MongoClient } = require('mongodb');
-
-const uri = 'mongodb+srv://admin:Reitzel@e41c.tm3gpox.mongodb.net/?retryWrites=true&w=majority&appName=e41c';
-
-const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
-
-async function connectToMongoDB() {
-  try {
-    await client.connect();
-    console.log('Connected to MongoDB');
-  } catch (error) {
-    console.error('Error connecting to MongoDB:', error);
-  }
-}
-
-connectToMongoDB();
-
-
-// Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
