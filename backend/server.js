@@ -12,13 +12,13 @@ const uri = process.env.DB_URI; // Using environment variable for MongoDB URI
 const dbName = process.env.DB_NAME; // Using environment variable for database name
 const port = process.env.PORT || 4000; // Using environment variable for port
 
-const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+const client = new MongoClient(uri);
 let db;
 
 async function connectToMongoDB() {
   try {
     await client.connect();
-    db = client.db(dbName); // Using environment variable for database name
+    db = client.db(process.env.DB_NAME); // Using environment variable for database name
     console.log('Connected to MongoDB');
   } catch (error) {
     console.error('Error connecting to MongoDB:', error);
@@ -26,6 +26,7 @@ async function connectToMongoDB() {
 }
 
 connectToMongoDB();
+
 
 const schema = buildSchema(`
   type Employee {
